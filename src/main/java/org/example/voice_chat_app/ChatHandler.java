@@ -6,24 +6,25 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Queue;
-import java.util.Set;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ChatHandler extends TextWebSocketHandler {
 
+    private final ConcurrentHashMap<WebSocketSession, String> userNames = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<WebSocketSession, String> userRoomPairs = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<String, Set<WebSocketSession>> rooms = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<String, Queue<String>> roomMessages = new ConcurrentHashMap<>();
 
+    private final DateFormat dateFormat = new SimpleDateFormat("HH:mm");
+
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws IOException {
-        System.out.println("Session established");
         userRoomPairs.put(session, "general");
         rooms.putIfAbsent("general", new HashSet<>());
         rooms.get("general").add(session);
@@ -38,16 +39,22 @@ public class ChatHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
 
+        if (message.getPayload().startsWith("[set_name]")) {
+            String name = message.getPayload().split("\\.")[1];
+            userNames.put(session, name);
+            sendMessageToAllUsersInTheRoom(userNames.get(session) + " connected to the room", "general");
+            return;
+        }
         if (message.getPayload().startsWith("[join_room]")) {
             String roomName = message.getPayload().split("\\.")[1];
             switchRoom(session, roomName);
             return;
         }
 
-        String userMessage = message.getPayload();
-        int lBracket = userMessage.indexOf("]");
-        String roomName = userMessage.substring(1, lBracket);
-        userMessage = userMessage.substring(lBracket + 1).trim();
+        String[] destructedMessage = destructMessage(message);
+        String roomName = destructedMessage[0];
+        String userMessage = destructedMessage[1];
+
         roomMessages.putIfAbsent(roomName, new LinkedList<>());
         roomMessages.get(roomName).add(userMessage);
 
@@ -55,8 +62,11 @@ public class ChatHandler extends TextWebSocketHandler {
     }
 
     @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws IOException {
         rooms.get(userRoomPairs.get(session)).remove(session);
+        sendMessageToAllUsersInTheRoom(userNames.get(session) + " left", "general");
+        userNames.remove(session);
+        userRoomPairs.remove(session);
     }
 
 
@@ -83,8 +93,18 @@ public class ChatHandler extends TextWebSocketHandler {
         for (String message : roomMessages.get(roomName)) {
             session.sendMessage(new TextMessage(message)); // sending all the messages of the room to refreshed client gui
         }
+    }
 
+    private String[] destructMessage(TextMessage message) {
+        String date = dateFormat.format(new Date());
+        String userMessage = message.getPayload();
 
+        int lBracket = userMessage.indexOf("]");
+        String roomName = userMessage.substring(1, lBracket);
+        userMessage = userMessage.substring(lBracket + 1).trim();
+        userMessage = "["+ date +"] " + userMessage;
+
+        return new String[] {roomName, userMessage};
     }
 
 }

@@ -73,6 +73,7 @@ public class ChatClient extends Application {
                 @Override
                 public void onOpen(ServerHandshake serverHandshake) {
                     chatArea.appendText("Connected to server\n");
+                    client.send("[set_name]."+username);
                 }
 
                 @Override
