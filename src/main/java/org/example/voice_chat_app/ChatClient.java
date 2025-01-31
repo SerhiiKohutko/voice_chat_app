@@ -45,7 +45,7 @@ public class ChatClient extends Application {
            }
        });
 
-       roomSelector.getItems().addAll("general", "games", "music"); // 🏠 Добавляем комнаты
+       roomSelector.getItems().addAll("general", "games", "music");
        roomSelector.setValue("general");
        roomSelector.setOnAction(event -> {
            String room = roomSelector.getSelectionModel().getSelectedItem();
@@ -63,6 +63,7 @@ public class ChatClient extends Application {
 
        System.out.println("Connecting socket");
        connectWebSocket();
+
 
    }
 
@@ -90,13 +91,17 @@ public class ChatClient extends Application {
                 }
             };
             client.connect();
+
             while (!client.isOpen()) {
-                Thread.sleep(100);
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             }
+
         } catch (URISyntaxException e) {
             System.out.println(e.getMessage());
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
         }
     }
 
