@@ -39,6 +39,11 @@ public class ChatHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
 
+        if (message.getPayload().equals("[join_voice]")) {
+            switchRoom(session, "voice_chat");
+            return;
+        }
+
         if (message.getPayload().startsWith("[set_name]")) {
             String name = message.getPayload().split("\\.")[1];
             userNames.put(session, name);
